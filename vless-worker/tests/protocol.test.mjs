@@ -2,12 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRequest, uuidBytes, joinBytes, DnsFrames, decodeEarlyData, parseSocks } from '../src/protocol.mjs';
 
-export const UUID = '00112233-4455-4677-8899-aabbccddeeff';
-export const identity = uuidBytes(UUID);
-export function requestBytes({ command = 1, port = 443, type = 2, address = new TextEncoder().encode('example.com'), payload = new Uint8Array([7, 8]), options = new Uint8Array() } = {}) {
-  return joinBytes(new Uint8Array([0]), identity, new Uint8Array([options.length]), options,
-    new Uint8Array([command, port >> 8, port & 255, type]), type === 2 ? new Uint8Array([address.length]) : new Uint8Array(), address, payload);
-}
+import { identity, requestBytes } from './fixtures.mjs';
 
 test('handshake supports every byte boundary and optional fields', () => {
   const packet = requestBytes({ options: new Uint8Array([1, 2, 3]) });
