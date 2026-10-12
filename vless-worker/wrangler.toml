@@ -1,0 +1,11 @@
+name = "xuana-vless"
+main = "worker.js"
+compatibility_date = "2026-10-12"
+workers_dev = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# Configure UUID and optionally SUB_TOKEN / SOCKS5 as Worker secrets.
+# No KV namespace or ADMIN variable is needed.
