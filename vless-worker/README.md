@@ -19,13 +19,31 @@
 ## 从零部署到 Workers
 
 1. 在 Cloudflare 的 **Workers & Pages** 中创建一个 Worker，打开代码编辑器，用根目录 [`源码.js`](../源码.js) 的**全部内容**替换默认示例代码。编辑器里出现“预览”内容，只代表预览环境的响应；还需要点击 **Deploy / 部署**，让新版本成为生产环境的 Active 版本。
-2. 在 Worker 的生产环境 **变量和机密**中添加 `UUID`。它是唯一必填变量，使用规范 UUID，例如 `123e4567-e89b-42d3-a456-426614174000`。示例值不能用于自己的服务；可本地运行 `node -e 'console.log(crypto.randomUUID())'` 生成。
-3. 建议添加两个独立的机密：`SUB_TOKEN` 是访问订阅的令牌；`ADMIN` 是 `/admin` 登录密码。两者都可省略，但省略时会依次回退，详见变量表。
+2. 按下一节的命令生成 `UUID`、`SUB_TOKEN`、`ADMIN`，把输出值分别填入 Worker **生产环境**的同名机密变量。`UUID` 是唯一必填项；不要使用文档中的示例 UUID。
+3. 建议分别设置 `SUB_TOKEN`（访问订阅的令牌）和 `ADMIN`（`/admin` 登录密码）。两者都可省略，但省略时会依次回退，详见变量表。
 4. 按需要添加 `SOCKS5`、`ADDRESSES` 等可选变量。只有需要在网页管理页**保存**优选列表时才创建或选用 KV 命名空间，并把 Worker 中的 **绑定变量名**写成 `SETTINGS`。命名空间自己的名称可以任意。
 5. 保存配置并部署到生产环境。打开 `https://你的-workers.dev-域名/health`，再用真实 `SUB_TOKEN` 测试 `/sub?token=...&format=raw`，最后在客户端导入订阅并实际连接。`/health` 成功不等于变量、KV 或 TCP 出口可用。
 6. 如需自定义域名，在这个 Worker 的域名/路由设置中添加并启用，再用该域名重复第 5 步。订阅中的 TLS SNI 和 WebSocket Host 默认取访问订阅时的域名；要固定成自己的域名，可设置 `HOST`。只配置 DNS 而没有让请求进入 Worker 时，代码本身无法处理该域名。
 
 `/admin` 页面本身不做配置检查，所以**页面能打开、预览能显示，也不证明生产部署或变量正确**。以生产域名的订阅响应和客户端实际连接为准。预览环境与生产环境可能使用不同的变量及绑定；检查配置时要看生产环境。
+
+### 生成 UUID、订阅令牌和管理密码
+
+在自己的终端运行下面一条命令；需要 Python 3，无需安装额外软件包：
+
+```sh
+python3 -c 'import uuid, secrets; print("UUID=" + str(uuid.uuid4())); print("SUB_TOKEN=" + secrets.token_urlsafe(32)); print("ADMIN=" + secrets.token_urlsafe(32))'
+```
+
+命令每运行一次都会生成一组新值。
+
+| 输出项 | 填写位置 | 作用 |
+| --- | --- | --- |
+| `UUID=...` | Cloudflare Worker 生产环境的 `UUID` 机密变量；只复制等号右边的值 | VLESS 客户端身份，必须与节点配置中的 UUID 一致 |
+| `SUB_TOKEN=...` | 同名 `SUB_TOKEN` 机密变量；只复制值 | `/sub?token=...` 使用的订阅令牌；命令生成约 43 个字符，符合 16–256 字符要求 |
+| `ADMIN=...` | 同名 `ADMIN` 机密变量；只复制值 | `/admin` 管理页登录密码，与订阅令牌分别生成 |
+
+如果只想生成必填的 UUID，可以运行 `python3 -c 'import uuid; print(uuid.uuid4())'`。不配置 `SUB_TOKEN` 时，它默认等于 UUID；不配置 `ADMIN` 时，它默认等于 `SUB_TOKEN`，若两者都未配置则也等于 UUID。推荐配置三个不同的值，不要把生成结果提交到 Git 或发给别人。更换 UUID 后旧客户端节点需要更新；更换 `SUB_TOKEN` 后订阅地址需要更新；更换 `ADMIN` 后使用新密码登录。`SOCKS5` 的地址和账号密码由你的代理服务提供，不能用上述命令替代。
 
 ### 最小配置
 
