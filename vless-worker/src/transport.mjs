@@ -125,7 +125,10 @@ export class TunnelSession {
       clearTimeout(this.timer);
       bytes = destination.payload;
       if (destination.command === 1) {
-        this.upstream = await openTcp(this.connect, destination, this.config.proxy, this.config.timeoutMs, socket => {
+        const target = !this.config.proxy && this.config.relay ? {
+          ...destination, hostname: this.config.relay.hostname, port: this.config.relay.port ?? destination.port,
+        } : destination;
+        this.upstream = await openTcp(this.connect, target, this.config.proxy, this.config.timeoutMs, socket => {
           this.socket = socket;
           if (this.stopped) { closeSocket(socket); throw new Error('Client already closed'); }
         });

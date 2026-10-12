@@ -92,3 +92,10 @@ test('text frames, queue overflow and idle handshakes are closed', async () => {
   const ws = new MockWebSocket(); const s = new TunnelSession(ws, { ...config, timeoutMs: 10 }, () => {});
   s.start(new Uint8Array()); await delay(20); assert.equal(ws.code, 1008);
 });
+test('PROXYIP routes to the relay while preserving client payload', async () => {
+  const ws = new MockWebSocket(); const socket = mockSocket(); let connected;
+  const session = new TunnelSession(ws, { ...config, relay: { hostname: 'relay.example', port: 8443 } }, target => { connected = target; return socket; });
+  session.start(requestBytes()); await session.chain;
+  assert.deepEqual(connected, { hostname: 'relay.example', port: 8443 });
+  assert.deepEqual(socket.writes, [new Uint8Array([7, 8])]); session.stop();
+});

@@ -10,7 +10,7 @@
 - [x] Implement VLESS Worker subscription endpoints.
 - [ ] Implement VLESS Worker custom preferred-address persistence.
 - [ ] Implement VLESS Worker custom subscription administration page.
-- [ ] Implement VLESS Worker explicit PROXYIP routing.
+- [x] Implement VLESS Worker explicit PROXYIP routing.
 - [ ] Verify VLESS Worker custom-address editing and access control.
 - [x] Verify VLESS Worker endpoints in the Workers runtime.
 - [x] Generate VLESS Worker standalone worker.js deployment artifact.

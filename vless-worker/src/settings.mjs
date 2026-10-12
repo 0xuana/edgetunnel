@@ -20,6 +20,17 @@ export function settings(env, requestUrl) {
     throw new Error('WS_PATH must be an absolute path distinct from HTTP endpoints');
   }
   const proxy = parseSocks(String(env.SOCKS5 || '').trim());
+  let relay = null;
+  if (env.PROXYIP) {
+    const input = String(env.PROXYIP).trim();
+    if (!input || /[\s/@?#\\]/.test(input)) throw new Error('PROXYIP must be host[:port]');
+    let endpoint;
+    try { endpoint = new URL(`https://${input}`); } catch { throw new Error('Invalid PROXYIP'); }
+    const explicitPort = input.startsWith('[') ? input.slice(input.indexOf(']') + 1).startsWith(':') : input.includes(':');
+    const port = explicitPort ? Number(input.slice(input.lastIndexOf(':') + 1)) : null;
+    if (port !== null && (!Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('Invalid PROXYIP port');
+    relay = { hostname: endpoint.hostname.replace(/^\[|\]$/g, ''), port };
+  }
   let doh;
   try { doh = new URL(env.DOH_URL || 'https://cloudflare-dns.com/dns-query'); }
   catch { throw new Error('Invalid DOH_URL'); }
@@ -40,7 +51,7 @@ export function settings(env, requestUrl) {
     if (!name || name.length > 100) throw new Error('Invalid node name');
     return { server: endpoint.hostname, port, name: `${name} (${index + 1})` };
   });
-  return { uuid, identity, host, token, path, proxy, doh: doh.href, timeoutMs, nodes };
+  return { uuid, identity, host, token, path, proxy, relay, doh: doh.href, timeoutMs, nodes };
 }
 
 export function sameToken(left, right) {

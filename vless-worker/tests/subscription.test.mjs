@@ -38,3 +38,9 @@ test('subscription rejects unknown formats and disables caching', () => {
   const response = subscription(settings({ UUID }, origin), 'unknown');
   assert.equal(response.status, 400); assert.equal(response.headers.get('Cache-Control'), 'no-store');
 });
+test('PROXYIP distinguishes inherited ports and explicit ports', () => {
+  assert.deepEqual(settings({ UUID, PROXYIP: 'relay.example' }, origin).relay, { hostname: 'relay.example', port: null });
+  assert.deepEqual(settings({ UUID, PROXYIP: '[2001:db8::1]:443' }, origin).relay, { hostname: '2001:db8::1', port: 443 });
+  assert.throws(() => settings({ UUID, PROXYIP: 'relay.example:0' }, origin), /PROXYIP/);
+  assert.throws(() => settings({ UUID, PROXYIP: 'https://relay.example' }, origin), /PROXYIP/);
+});
