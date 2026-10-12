@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { UUID, requestBytes } from './fixtures.mjs';
 
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'worker.js', compatibilityDate: '2026-10-12', bindings: { UUID } }));
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'worker.js', compatibilityDate: '2026-10-12', bindings: { UUID, ADMIN: 'test-admin' }, kvNamespaces: ['SETTINGS'] }));
 try {
   const request = (path, options) => mf.dispatchFetch(`https://entry.example${path}`, options);
   assert.equal((await request('/health')).status, 200);
@@ -15,6 +15,14 @@ try {
   const clash = await request('/sub?format=clash', { headers: { Authorization: `Bearer ${UUID}` } });
   assert.equal((await clash.json()).proxies.length, 1);
   assert.equal((await request('/sub', { method: 'POST' })).status, 405);
+  assert.equal((await request('/admin')).status, 200);
+  assert.equal((await request('/admin/api')).status, 401);
+  const authorization = { Authorization: 'Bearer test-admin', 'Content-Type': 'application/json' };
+  const save = await request('/admin/api', { method: 'PUT', headers: authorization, body: JSON.stringify({ addresses: '104.16.1.1:8443#Custom' }) });
+  assert.equal(save.status, 200);
+  assert.equal((await (await request('/admin/api', { headers: authorization })).json()).addresses, '104.16.1.1:8443#Custom');
+  assert.ok((await (await request(`/sub?token=${UUID}&format=raw`)).text()).includes('@104.16.1.1:8443?'));
+  assert.equal((await request('/admin/api', { method: 'DELETE', headers: authorization })).status, 200);
   assert.equal((await request('/tunnel', { headers: { Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'bad,header' } })).status, 400);
   const upgraded = await request('/tunnel', { headers: { Upgrade: 'websocket' } });
   assert.equal(upgraded.status, 101);
@@ -24,5 +32,5 @@ try {
   const packet = requestBytes(); packet[1] ^= 1;
   client.send(packet);
   await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error('Unauthorized WebSocket did not close')), 3000).unref())]);
-  console.log('Workers runtime: HTTP routing, subscriptions, early data rejection and WebSocket authentication passed');
+  console.log('Workers runtime: HTTP routing, subscriptions, persistent KV administration, early data rejection and WebSocket authentication passed');
 } finally { await mf.dispose(); }

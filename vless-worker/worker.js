@@ -475,6 +475,122 @@ function upgrade(request, config, connect2) {
   return new Response(null, { status: 101, webSocket: client });
 }
 
+// src/admin.mjs
+var key = "preferred-addresses-v1";
+var headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" };
+var page = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VLESS \u8BA2\u9605\u7BA1\u7406</title>
+<style>body{font:16px system-ui;margin:0;background:#f5f7fb;color:#172033}main{max-width:760px;margin:48px auto;padding:28px;background:white;border-radius:16px;box-shadow:0 8px 32px #17203312}h1{font-size:26px}label{display:block;margin:18px 0 8px}input,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #b9c3d2;border-radius:8px;font:inherit}textarea{font-family:monospace;min-height:240px}button{padding:11px 18px;margin:12px 8px 0 0;border:0;border-radius:8px;background:#244ed8;color:white;cursor:pointer}button:disabled{opacity:.5;cursor:wait}p{line-height:1.6}a{overflow-wrap:anywhere}#status{white-space:pre-wrap;min-height:24px}small{color:#526075}[hidden]{display:none!important}@media(max-width:800px){main{margin:16px;padding:20px}}</style>
+<script src="/admin/app.js" defer><\/script></head><body><main>
+<h1>VLESS \u81EA\u5B9A\u4E49\u4F18\u9009\u8BA2\u9605</h1><p>\u4E3A\u5BA2\u6237\u7AEF\u9009\u62E9\u8FDE\u63A5\u5165\u53E3\uFF0CTLS \u548C WebSocket \u4E3B\u673A\u4ECD\u4F7F\u7528\u4F60\u7684 Worker \u57DF\u540D\u3002</p>
+<form id="login"><label for="password">\u7BA1\u7406\u5BC6\u7801</label><input id="password" type="password" autocomplete="current-password" required><button>\u767B\u5F55</button></form>
+<section id="editor" hidden><p id="storage"></p><label for="addresses">\u4F18\u9009\u5165\u53E3\u5217\u8868</label><textarea id="addresses" spellcheck="false" placeholder="104.16.1.1:443#\u9999\u6E2F&#10;edge.example.com:8443#\u5907\u7528&#10;[2606:4700::1]:443#IPv6"></textarea>
+<small>\u6BCF\u884C\u4E00\u4E2A IP \u6216\u57DF\u540D\uFF0C\u53EF\u9644 :\u7AEF\u53E3 \u548C #\u5907\u6CE8\u3002\u4FDD\u5B58\u540E\u66F4\u65B0\u5BA2\u6237\u7AEF\u8BA2\u9605\u5373\u53EF\u751F\u6548\uFF1BKV \u66F4\u65B0\u53EF\u80FD\u9700\u8981\u77ED\u6682\u540C\u6B65\u3002</small>
+<div><button id="save" type="button">\u4FDD\u5B58\u5217\u8868</button><button id="reset" type="button">\u6062\u590D\u73AF\u5883\u53D8\u91CF\u5217\u8868</button><button id="logout" type="button">\u9000\u51FA</button></div>
+<h2>\u8BA2\u9605\u5730\u5740</h2><p><a id="base64">Base64 \u8BA2\u9605</a></p><p><a id="raw">\u660E\u6587 VLESS \u94FE\u63A5</a></p><p><a id="clash">Clash / Mihomo \u8BA2\u9605</a></p>
+<p>\u51FA\u53E3\u4EE3\u7406\u901A\u8FC7 Worker \u7684 SOCKS5 \u6216 PROXYIP \u914D\u7F6E\uFF0C\u4E0E\u672C\u9875\u7684\u4F18\u9009\u5165\u53E3\u4E0D\u540C\u3002</p></section>
+<p id="status" role="status" aria-live="polite"></p></main></body></html>`;
+var script = `const $ = id => document.getElementById(id);
+let credential = '';
+let busy = false;
+async function api(method = 'GET', body) {
+  const response = await fetch('/admin/api', { method, headers: { Authorization: 'Bearer ' + credential, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store' });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || '\u8BF7\u6C42\u5931\u8D25');
+  return result;
+}
+function render(result) {
+  $('addresses').value = result.addresses;
+  $('storage').textContent = result.persistent ? '\u5DF2\u8FDE\u63A5\u5B58\u50A8\uFF0C\u53EF\u4EE5\u4FDD\u5B58\u4F18\u9009\u5217\u8868\u3002' : '\u5F53\u524D\u4F7F\u7528\u73AF\u5883\u53D8\u91CF ADDRESSES\u3002\u4FDD\u5B58\u5217\u8868\u9700\u8981\u7ED1\u5B9A\u540D\u79F0\u4E3A SETTINGS \u7684 KV \u547D\u540D\u7A7A\u95F4\u3002';
+  $('save').disabled = !result.persistent;
+  $('reset').disabled = !result.persistent;
+  for (const format of ['base64', 'raw', 'clash']) {
+    const link = $(format); const url = new URL(result.subscriptionUrl);
+    url.searchParams.set('format', format); link.href = url.href;
+  }
+  $('login').hidden = true; $('editor').hidden = false;
+}
+async function run(action) {
+  if (busy) return; busy = true; $('status').textContent = '\u5904\u7406\u4E2D\u2026';
+  try { await action(); } catch (error) { $('status').textContent = error.message; }
+  finally { busy = false; }
+}
+$('login').addEventListener('submit', event => { event.preventDefault(); run(async () => {
+  credential = $('password').value; render(await api()); $('password').value = ''; $('status').textContent = '\u5DF2\u767B\u5F55';
+}); });
+$('save').addEventListener('click', () => run(async () => { render(await api('PUT', { addresses: $('addresses').value })); $('status').textContent = '\u5DF2\u4FDD\u5B58\u3002\u8BF7\u66F4\u65B0\u5BA2\u6237\u7AEF\u8BA2\u9605\u3002'; }));
+$('reset').addEventListener('click', () => run(async () => { render(await api('DELETE')); $('status').textContent = '\u5DF2\u6062\u590D\u73AF\u5883\u53D8\u91CF\u5217\u8868\u3002'; }));
+$('logout').addEventListener('click', () => { if (busy) return; credential = ''; $('addresses').value = ''; $('password').value = ''; for (const id of ['base64', 'raw', 'clash']) $(id).removeAttribute('href'); $('editor').hidden = true; $('login').hidden = false; $('status').textContent = ''; });`;
+function adminAsset(path) {
+  if (path === "/admin" || path === "/admin/") return new Response(page, { headers: {
+    ...headers,
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+  } });
+  if (path === "/admin/app.js") return new Response(script, { headers: { ...headers, "Content-Type": "text/javascript; charset=utf-8" } });
+  return null;
+}
+function store(env) {
+  return env.SETTINGS && ["get", "put", "delete"].every((method) => typeof env.SETTINGS[method] === "function") ? env.SETTINGS : null;
+}
+async function preferredSettings(env, url) {
+  const saved = await store(env)?.get(key);
+  return settings(saved === null || saved === void 0 ? env : { ...env, ADDRESSES: saved }, url);
+}
+async function limitedBody(request) {
+  if (!request.body) throw new Error("Missing request body");
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 16384) throw new Error("List is too large");
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+  return new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
+}
+async function adminApi(request, env, config, url) {
+  const json = (body, status = 200) => Response.json(body, { status, headers });
+  const token = request.headers.get("Authorization") || "";
+  const expected = String(env.ADMIN || config.token);
+  if (!token.startsWith("Bearer ") || !sameToken(token.slice(7), expected)) return json({ error: "Unauthorized" }, 401);
+  const kv = store(env);
+  try {
+    let addresses;
+    if (request.method === "GET") addresses = await kv?.get(key) ?? String(env.ADDRESSES || config.host);
+    else if (request.method === "PUT") {
+      if (!kv) return json({ error: "\u8BF7\u7ED1\u5B9A SETTINGS KV \u540E\u4FDD\u5B58" }, 409);
+      if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return json({ error: "JSON body required" }, 415);
+      const input = JSON.parse(await limitedBody(request));
+      if (typeof input.addresses !== "string" || !input.addresses.trim()) return json({ error: "\u8BF7\u8F93\u5165\u81F3\u5C11\u4E00\u4E2A\u5165\u53E3\u5730\u5740" }, 400);
+      addresses = input.addresses.trim();
+      settings({ ...env, ADDRESSES: addresses }, url);
+      await kv.put(key, addresses);
+    } else if (request.method === "DELETE") {
+      if (!kv) return json({ error: "\u8BF7\u7ED1\u5B9A SETTINGS KV \u540E\u91CD\u7F6E" }, 409);
+      await kv.delete(key);
+      addresses = String(env.ADDRESSES || config.host);
+    } else return json({ error: "Method not allowed" }, 405);
+    const subscriptionUrl = new URL("/sub", url);
+    subscriptionUrl.searchParams.set("token", config.token);
+    return json({ addresses, persistent: Boolean(kv), subscriptionUrl: subscriptionUrl.href });
+  } catch (error) {
+    if (error instanceof SyntaxError || /address|endpoint|ADDRESSES|List is too large|Missing request body|node name/.test(error.message)) {
+      return json({ error: "\u5217\u8868\u683C\u5F0F\u65E0\u6548\uFF0C\u8BF7\u4F7F\u7528 IP\u6216\u57DF\u540D:\u7AEF\u53E3#\u5907\u6CE8\uFF0C\u6700\u591A64\u884C\u300116KB" }, 400);
+    }
+    console.error("Preferred address storage failed:", error.name);
+    return json({ error: "\u65E0\u6CD5\u8BFB\u53D6\u6216\u4FDD\u5B58\u5217\u8868\uFF0C\u8BF7\u68C0\u67E5 KV \u7ED1\u5B9A" }, 503);
+  }
+}
+
 // src/worker.mjs
 var worker_default = {
   async fetch(request, env) {
@@ -483,7 +599,11 @@ var worker_default = {
     if (!wantsWebSocket && (url.pathname === "/" || url.pathname === "/health") && request.method === "GET") {
       return new Response("VLESS Worker is running\n", { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
     }
-    if (request.method !== "GET") return new Response("Method not allowed", { status: 405, headers: { Allow: "GET" } });
+    if (!wantsWebSocket && request.method === "GET") {
+      const asset = adminAsset(url.pathname);
+      if (asset) return asset;
+    }
+    if (request.method !== "GET" && url.pathname !== "/admin/api") return new Response("Method not allowed", { status: 405, headers: { Allow: "GET" } });
     let config;
     try {
       config = settings(env, url);
@@ -491,6 +611,7 @@ var worker_default = {
       console.error("Worker configuration error:", error.message);
       return new Response("Worker configuration is incomplete or invalid", { status: 503, headers: { "Cache-Control": "no-store" } });
     }
+    if (url.pathname === "/admin/api" && !wantsWebSocket) return adminApi(request, env, config, url);
     if (wantsWebSocket) {
       if (url.pathname !== config.path) return new Response("Not found", { status: 404 });
       try {
@@ -503,7 +624,12 @@ var worker_default = {
       const authorization = request.headers.get("Authorization") || "";
       const provided = authorization.startsWith("Bearer ") ? authorization.slice(7) : url.searchParams.get("token") || "";
       if (!sameToken(provided, config.token)) return new Response("Unauthorized", { status: 401, headers: { "Cache-Control": "no-store" } });
-      return subscription(config, url.searchParams.get("format") || "base64");
+      try {
+        return subscription(await preferredSettings(env, url), url.searchParams.get("format") || "base64");
+      } catch (error) {
+        console.error("Subscription configuration failed:", error.name);
+        return new Response("Subscription configuration unavailable", { status: 503, headers: { "Cache-Control": "no-store" } });
+      }
     }
     return new Response("Not found", { status: 404 });
   }
