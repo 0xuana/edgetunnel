@@ -1,4 +1,6 @@
 # 🚀 edgetunnel 2.1
+
+需要独立的 VLESS-only 版本时，可直接复制根目录的 [源码.js](./源码.js) 到 Cloudflare Workers 编辑器。它将实现和管理页放在一个文件中，没有模块 `import`；配置及 SOCKS5/优选订阅用法见 [新版部署说明](./vless-worker/README.md)。
 ![后台页面](./img.png)
 
 [![Stars](https://img.shields.io/github/stars/cmliu/edgetunnel?style=flat-square&logo=github)](https://github.com/cmliu/edgetunnel/stargazers)

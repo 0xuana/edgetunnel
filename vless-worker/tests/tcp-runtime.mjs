@@ -47,7 +47,7 @@ const server = net.createServer(socket => {
 server.listen(0, '127.0.0.1'); await once(server, 'listening');
 const proxyPort = server.address().port;
 const inline = Boolean(process.env.INLINE_WORKER);
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: inline ? resolve('../源码.js') : 'worker.js', ...(inline ? { modulesRoot: resolve('..'), rootPath: resolve('..') } : {}), compatibilityDate: '2026-10-12', bindings: { UUID, SOCKS5: `socks5://test-user:test-password@127.0.0.1:${proxyPort}`, PROXYIP: 'unused-relay.invalid:1' } }));
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: inline ? resolve('../源码.js') : 'worker.js', ...(inline ? { modulesRoot: resolve('..'), rootPath: resolve('..') } : {}), compatibilityDate: process.env.WORKER_COMPAT_DATE || '2026-10-12', bindings: { UUID, SOCKS5: `socks5://test-user:test-password@127.0.0.1:${proxyPort}`, PROXYIP: 'unused-relay.invalid:1' } }));
 try {
   const response = await mf.dispatchFetch('https://entry.example/tunnel', { headers: { Upgrade: 'websocket' } });
   assert.equal(response.status, 101);

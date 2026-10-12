@@ -4,7 +4,7 @@ import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { UUID, requestBytes } from './fixtures.mjs';
 
 const inline = Boolean(process.env.INLINE_WORKER);
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: inline ? resolve('../源码.js') : 'worker.js', ...(inline ? { modulesRoot: resolve('..'), rootPath: resolve('..') } : {}), compatibilityDate: '2026-10-12', bindings: { UUID, ADMIN: 'test-admin' }, kvNamespaces: ['SETTINGS'] }));
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: inline ? resolve('../源码.js') : 'worker.js', ...(inline ? { modulesRoot: resolve('..'), rootPath: resolve('..') } : {}), compatibilityDate: process.env.WORKER_COMPAT_DATE || '2026-10-12', bindings: { UUID, ADMIN: 'test-admin' }, kvNamespaces: ['SETTINGS'] }));
 try {
   const request = (path, options) => mf.dispatchFetch(`https://entry.example${path}`, options);
   assert.equal((await request('/health')).status, 200);

@@ -2,13 +2,13 @@
 
 独立重写的 Cloudflare Workers 实现：VLESS over WebSocket、TCP、SOCKS5 出口、自定义优选订阅，以及一个简洁的订阅管理页。
 
-部署文件是本目录的 **`worker.js`**。它已经包含全部实现及管理页，只有 `cloudflare:sockets` 这个 Workers 内置导入，不需要上传其他源码，也不需要在线混淆。
+**按你的单文件部署要求，直接使用仓库根目录的 [`源码.js`](../源码.js)。** 它把所有实现及管理页打包在一个文件中，没有任何 JavaScript 模块导入，也不需要在线混淆。此文件使用 workerd 中的 `request.fetcher.connect` 建立 TCP 连接，本地运行时已验证 VLESS/SOCKS5 双向转发。这个接口目前未列入 Cloudflare 的公开 TCP API 文档；CF 将来改变它时需改用下述官方 API 版本。
 
-文件开头的 `import { connect } from "cloudflare:sockets"` 必须保留。它不会从 GitHub、npm 或其他 JavaScript 文件下载代码，CF 运行时会直接提供此 API。TCP/SOCKS5 所需的原生套接字无法用普通 JavaScript 内嵌代替；删除这行会破坏代理功能。所有 `src/` 模块已经打包到这个文件，注释中的源码路径只是构建标记。
+另一份 [`vless-worker/worker.js`](./worker.js) 使用 Cloudflare 文档支持的 `cloudflare:sockets` 内置导入。它也只需复制一个文件；导入的是运行时 API，不是仓库内的额外文件。需要优先使用公开 API 时选它。两份部署文件来自同一套实现。
 
 ## 网页部署
 
-1. 创建 Workers 项目，把 `worker.js` 的全部内容复制到代码编辑器，替换默认脚本。
+1. 创建 Workers 项目，把仓库根目录 `源码.js` 的全部内容复制到代码编辑器，替换默认脚本。不要复制 `src/` 下的维护模块。
 2. 设置必需的秘密变量 `UUID`。请自行生成，不要使用测试代码中的 UUID。Node.js 可执行 `node -e 'console.log(crypto.randomUUID())'`。
 3. 设置 `SUB_TOKEN` 为随机订阅令牌，建议至少 32 个随机字符；省略时使用 UUID。设置 `ADMIN` 为独立管理密码；省略时使用 SUB_TOKEN。
 4. 如果需要 SOCKS5 出口，设置秘密变量 `SOCKS5`，例如 `socks5://user:password@proxy.example.com:1080`。
@@ -96,11 +96,11 @@ npm run build
 npm run test:runtime
 ```
 
-`src/` 是独立模块源码，`worker.js` 是生成的单文件。修改源码后运行 build，避免只改生成文件导致下次构建覆盖。
+`src/` 是独立模块源码。运行 build 会同时更新根目录的无导入 `源码.js` 和本目录的官方 API `worker.js`。修改源码后运行 build，避免只改生成文件导致下次构建覆盖。
 
 运行时测试使用 Miniflare/workerd，覆盖订阅鉴权、KV 保存及重置、WebSocket UUID 验证、真实 TCP 套接字、SOCKS5 认证、分片握手和双向回传。SOCKS5 测试服务器仅监听本机，不访问你的真实代理。
 
-如用 Wrangler 部署，在本目录运行 `npx wrangler deploy`。配置入口已设置为 `worker.js`，请先设置变量/秘密变量，并按需添加 SETTINGS KV 绑定。
+如用 Wrangler 部署官方 API 版本，在本目录运行 `npx wrangler deploy`，配置入口已设置为 `worker.js`。要用 Wrangler 部署根目录的无导入版本，请先将 `wrangler.toml` 的 `main` 改为 `../源码.js`；网页直接粘贴部署无需这一步。
 
 ## 排查
 
