@@ -1,0 +1,14 @@
+{
+  "name": "xuana-vless-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "esbuild src/worker.mjs --bundle --format=esm --platform=browser --external:cloudflare:sockets --outfile=dist/worker.js",
+    "test:runtime": "node tests/runtime.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "miniflare": "^5.20261006.1-alpha"
+  }
+}
