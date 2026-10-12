@@ -50,7 +50,6 @@ test('admin assets have a restrictive CSP and executable script syntax', async (
   const response = adminAsset('/admin');
   assert.ok(response.headers.get('Content-Security-Policy').includes("frame-ancestors 'none'"));
   assert.ok((await response.text()).includes('优选入口列表'));
-  assert.doesNotThrow(() => new Function());
   const script = await adminAsset('/admin/app.js').text();
   assert.doesNotThrow(() => new Function(script));
   assert.ok(!script.includes('localStorage')); assert.ok(!script.includes('innerHTML'));
