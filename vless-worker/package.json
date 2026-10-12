@@ -4,8 +4,10 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "build": "esbuild src/worker.mjs --bundle --format=esm --platform=browser --external:cloudflare:sockets --banner:js=\"// Single-file Worker. cloudflare:sockets is built into Cloudflare; no additional files are required.\" --outfile=worker.js",
-    "test:runtime": "node tests/runtime.mjs && node tests/tcp-runtime.mjs"
+    "build": "npm run build:standard && npm run build:inline",
+    "build:standard": "esbuild src/worker.mjs --bundle --format=esm --platform=browser --external:cloudflare:sockets --banner:js=\"// Single-file Worker. cloudflare:sockets is built into Cloudflare; no additional files are required.\" --outfile=worker.js",
+    "build:inline": "esbuild src/worker-inline.mjs --bundle --format=esm --platform=browser --banner:js=\"// Standalone Worker. Uses request.fetcher.connect from workerd for TCP.\" --outfile=../源码.js",
+    "test:runtime": "node tests/runtime.mjs && node tests/tcp-runtime.mjs && INLINE_WORKER=1 node tests/runtime.mjs && INLINE_WORKER=1 node tests/tcp-runtime.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

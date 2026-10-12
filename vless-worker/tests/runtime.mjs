@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { UUID, requestBytes } from './fixtures.mjs';
 
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'worker.js', compatibilityDate: '2026-10-12', bindings: { UUID, ADMIN: 'test-admin' }, kvNamespaces: ['SETTINGS'] }));
+const inline = Boolean(process.env.INLINE_WORKER);
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: inline ? resolve('../源码.js') : 'worker.js', ...(inline ? { modulesRoot: resolve('..'), rootPath: resolve('..') } : {}), compatibilityDate: '2026-10-12', bindings: { UUID, ADMIN: 'test-admin' }, kvNamespaces: ['SETTINGS'] }));
 try {
   const request = (path, options) => mf.dispatchFetch(`https://entry.example${path}`, options);
   assert.equal((await request('/health')).status, 200);
@@ -32,5 +34,5 @@ try {
   const packet = requestBytes(); packet[1] ^= 1;
   client.send(packet);
   await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error('Unauthorized WebSocket did not close')), 3000).unref())]);
-  console.log('Workers runtime: HTTP routing, subscriptions, persistent KV administration, early data rejection and WebSocket authentication passed');
+  console.log(`${process.env.INLINE_WORKER ? 'Import-free' : 'Module'} Workers runtime: HTTP routing, subscriptions, KV administration and WebSocket authentication passed`);
 } finally { await mf.dispose(); }

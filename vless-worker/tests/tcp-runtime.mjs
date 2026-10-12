@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import net from 'node:net';
 import { once } from 'node:events';
+import { resolve } from 'node:path';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { UUID, requestBytes } from './fixtures.mjs';
 
@@ -45,7 +46,8 @@ const server = net.createServer(socket => {
 });
 server.listen(0, '127.0.0.1'); await once(server, 'listening');
 const proxyPort = server.address().port;
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'worker.js', compatibilityDate: '2026-10-12', bindings: { UUID, SOCKS5: `socks5://test-user:test-password@127.0.0.1:${proxyPort}`, PROXYIP: 'unused-relay.invalid:1' } }));
+const inline = Boolean(process.env.INLINE_WORKER);
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: inline ? resolve('../源码.js') : 'worker.js', ...(inline ? { modulesRoot: resolve('..'), rootPath: resolve('..') } : {}), compatibilityDate: '2026-10-12', bindings: { UUID, SOCKS5: `socks5://test-user:test-password@127.0.0.1:${proxyPort}`, PROXYIP: 'unused-relay.invalid:1' } }));
 try {
   const response = await mf.dispatchFetch('https://entry.example/tunnel', { headers: { Upgrade: 'websocket' } });
   assert.equal(response.status, 101);
@@ -60,7 +62,7 @@ try {
   assert.deepEqual(await reply, new Uint8Array([0, 0, ...new TextEncoder().encode('runtime-echo')]));
   assert.deepEqual(visited, [{ hostname: 'example.com', port: 443 }]);
   assert.deepEqual(errors, []); client.close();
-  console.log('Workers runtime: real TCP socket, authenticated SOCKS5, split VLESS handshake and bidirectional echo passed');
+  console.log(`${process.env.INLINE_WORKER ? 'Import-free' : 'Module'} Workers runtime: real TCP socket, authenticated SOCKS5, split VLESS handshake and bidirectional echo passed`);
 } finally {
   await mf.dispose(); for (const socket of connections) socket.destroy();
   await new Promise(resolve => server.close(resolve));
