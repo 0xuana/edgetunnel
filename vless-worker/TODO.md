@@ -14,5 +14,6 @@
 - [x] Verify VLESS Worker custom-address editing and access control.
 - [x] Verify VLESS Worker endpoints in the Workers runtime.
 - [x] Generate VLESS Worker standalone worker.js deployment artifact.
-- [ ] Document VLESS Worker deployment settings.
-- [ ] Record VLESS Worker implementation history and commits.
+- [x] Clarify VLESS Worker built-in TCP import for single-file deployment.
+- [x] Document VLESS Worker deployment settings.
+- [x] Record VLESS Worker implementation history and commits.

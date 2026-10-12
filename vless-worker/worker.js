@@ -1,3 +1,5 @@
+// Single-file Worker. cloudflare:sockets is built into Cloudflare; no additional files are required.
+
 // src/worker.mjs
 import { connect } from "cloudflare:sockets";
 
